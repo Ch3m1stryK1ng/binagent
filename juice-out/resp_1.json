@@ -1,0 +1,16 @@
+{
+  "status": "success",
+  "data": {
+    "username": "",
+    "deluxeToken": "",
+    "lastLoginIp": "0.0.0.0",
+    "profileImage": "/assets/public/images/uploads/defaultAdmin.png",
+    "isActive": true,
+    "id": 23,
+    "email": "admin.reg.bot+1@evil.test",
+    "role": "admin",
+    "updatedAt": "2026-01-20T05:30:38.642Z",
+    "createdAt": "2026-01-20T05:30:38.642Z",
+    "deletedAt": null
+  }
+}
