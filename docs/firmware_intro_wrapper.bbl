@@ -1,0 +1,137 @@
+\begin{thebibliography}{10}
+
+\bibitem{angelakopoulos2023firmsolo}
+Konstantinos Angelakopoulos, George Cretu, Alexandros Voyiatzis, and Vasileios
+  Pappas.
+\newblock Firmsolo: Enabling dynamic analysis of binary linux-based iot kernel
+  modules.
+\newblock In {\em 32nd USENIX Security Symposium (USENIX Security 23)}, 2023.
+
+\bibitem{angelakopoulos2024pandawan}
+Konstantinos Angelakopoulos, George Cretu, Alexandros Voyiatzis, and Vasileios
+  Pappas.
+\newblock Pandawan: Quantifying progress in linux-based firmware rehosting.
+\newblock In {\em 33rd USENIX Security Symposium (USENIX Security 24)}, 2024.
+
+\bibitem{chen2016firmadyne}
+David~D. Chen, Maverick Woo, David Brumley, and Manuel Egele.
+\newblock Towards automated dynamic analysis for linux-based embedded firmware.
+\newblock In {\em 23rd Annual Network and Distributed System Security Symposium
+  (NDSS)}, 2016.
+
+\bibitem{costin2014large}
+Andrei Costin, Apostolis Zarras, and Aurelien Francillon.
+\newblock A large-scale analysis of the security of embedded firmwares.
+\newblock In {\em 23rd USENIX Security Symposium (USENIX Security 14)}, 2014.
+
+\bibitem{deng2023pentestgpt}
+Ge~Deng, Y~Liu, Victor Mayoral-Vilches, et~al.
+\newblock Pentestgpt: An llm-empowered automatic penetration testing tool.
+\newblock {\em arXiv preprint arXiv:2308.06782}, 2023.
+
+\bibitem{eschweiler2016discovere}
+Sebastian Eschweiler, Khaled Yakdan, and Elmar Gerhards-Padilla.
+\newblock discovre: Efficient cross-architecture identification of bugs in
+  binary code.
+\newblock In {\em 23rd Annual Network and Distributed System Security Symposium
+  (NDSS)}, 2016.
+
+\bibitem{fang2024autonomoushacking}
+Ruohong Fang, Pratham Bindu, et~al.
+\newblock Llm agents can autonomously hack websites.
+\newblock {\em arXiv preprint arXiv:2402.06664}, 2024.
+
+\bibitem{gou2023critic}
+Zhibin Gou, Zhihong Shao, Yeyun Gong, Yelong Shen, Nan Duan, and Weizhu Chen.
+\newblock Critic: Large language models can self-correct with tool-interactive
+  critiquing.
+\newblock {\em arXiv preprint arXiv:2305.11738}, 2023.
+
+\bibitem{kim2020firmae}
+Donggeon Kim, Hyungjoon Kim, Minwook Choi, Daegyeong Kim, Yonghwi Kim, Suhwan
+  Kim, Sang~Kil Lee, and Taesoo Choi.
+\newblock Firmae: Towards large-scale emulation of iot firmware for dynamic
+  analysis.
+\newblock In {\em Annual Computer Security Applications Conference (ACSAC)},
+  2020.
+
+\bibitem{liu2025vulbinllm}
+Y~Liu et~al.
+\newblock Vulbinllm: Llm-powered vulnerability detection for stripped binaries.
+\newblock {\em arXiv preprint arXiv:2505.22010}, 2025.
+
+\bibitem{mukherjee2020laelaps}
+S~Mukherjee et~al.
+\newblock Laelaps: Practical and scalable peripheral emulation in firmware
+  rehosting.
+\newblock In {\em Annual Computer Security Applications Conference (ACSAC)},
+  2020.
+
+\bibitem{packer2023memgpt}
+Charles Packer, Vivian Fang, Shishir Patil, Kevin Lin, and Joseph~E. Gonzalez.
+\newblock Memgpt: Towards llms as operating systems.
+\newblock {\em arXiv preprint arXiv:2310.08560}, 2023.
+
+\bibitem{schick2023toolformer}
+Timo Schick, Jane Dwivedi-Yu, et~al.
+\newblock Toolformer: Language models can teach themselves to use tools.
+\newblock {\em arXiv preprint arXiv:2302.04761}, 2023.
+
+\bibitem{shinn2023reflexion}
+Noah Shinn, Federico Labash, Ashwin Gopinath, et~al.
+\newblock Reflexion: Language agents with verbal reinforcement learning.
+\newblock {\em arXiv preprint arXiv:2303.11366}, 2023.
+
+\bibitem{shoshitaishvili2016sok}
+Yan Shoshitaishvili, Ruoyu Wang, Christopher Hauser, Christopher Kruegel, and
+  Giovanni Vigna.
+\newblock Sok: (state of) the art of war: Offensive techniques in binary
+  analysis.
+\newblock {\em 2016 IEEE Symposium on Security and Privacy (SP)}, 2016.
+
+\bibitem{stephens2016driller}
+Nick Stephens, Josh Grosen, Christopher Salls, Nick Dutcher, Ruoyu Wang, Jacopo
+  Corbetta, Yan Shoshitaishvili, Christopher Kruegel, and Giovanni Vigna.
+\newblock Driller: Augmenting fuzzing through selective symbolic execution.
+\newblock In {\em 23rd Annual Network and Distributed System Security Symposium
+  (NDSS)}, 2016.
+
+\bibitem{tan2024llm4decompile}
+Hengrui Tan, Xi~Wang, Shuai Wang, Yifei Zhang, et~al.
+\newblock Llm4decompile: Decompiling binary code with large language models.
+\newblock In {\em Proceedings of the 2024 Conference on Empirical Methods in
+  Natural Language Processing (EMNLP)}, 2024.
+
+\bibitem{tsang2024ffxe}
+Alan Tsang et~al.
+\newblock Ffxe: Dynamic control flow graph recovery for embedded firmware
+  binaries.
+\newblock In {\em 33rd USENIX Security Symposium (USENIX Security 24)}, 2024.
+
+\bibitem{wang2023planandsolve}
+Lei Wang, Weizhe Xu, Jing Liu, Yi~Sun, et~al.
+\newblock Plan-and-solve prompting: Improving zero-shot chain-of-thought
+  reasoning by large language models.
+\newblock {\em arXiv preprint arXiv:2305.04091}, 2023.
+
+\bibitem{yao2023treeofthoughts}
+Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Karthik Narasimhan, and Yuan
+  Cao.
+\newblock Tree of thoughts: Deliberate problem solving with large language
+  models.
+\newblock {\em arXiv preprint arXiv:2305.10601}, 2023.
+
+\bibitem{yao2022react}
+Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan,
+  and Yuan Cao.
+\newblock React: Synergizing reasoning and acting in language models.
+\newblock In {\em International Conference on Learning Representations (ICLR)},
+  2023.
+
+\bibitem{yun2018qsym}
+Insu Yun, Sangho Lee, Meng Xu, Yeongjin Jang, and Taesoo Kim.
+\newblock Qsym: A practical concolic execution engine tailored for hybrid
+  fuzzing.
+\newblock In {\em 27th USENIX Security Symposium (USENIX Security 18)}, 2018.
+
+\end{thebibliography}

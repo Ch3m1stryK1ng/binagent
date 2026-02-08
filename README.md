@@ -126,6 +126,112 @@ PentestAgent has three modes, accessible via commands in the TUI:
 
 Press `Esc` to stop a running agent. `Ctrl+Q` to quit.
 
+## Unified CTF/RE Solver
+
+BinAgent includes a unified solver (`binagent solve`) that routes CTF/RE challenges to the appropriate existing components:
+
+- **ctf_nc**: Netcat challenges → CTFRunner (banner-first approach)
+- **apk_re**: APK reverse engineering → APKAnalyzer/Solver (deterministic)
+- **binary_re**: Binary analysis → BinaryAnalystAgent (requires IDA)
+
+### Architecture
+
+```
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
+│  binagent solve │ ──▶ │ RouterPlanner│ ──▶ │    Executor     │
+│   (CLI entry)   │     │ (JSON plan)  │     │ (deterministic) │
+└─────────────────┘     └──────────────┘     └─────────────────┘
+                              │                      │
+                              ▼                      ▼
+                        LLM (optional)         Existing tools:
+                        for complex routing    - CTFRunner
+                                               - APKAnalyzer/Solver
+                                               - BinaryAnalystAgent
+```
+
+The LLM is used **only for planning** (producing a JSON plan), not for step-by-step solving.
+Execution is deterministic using existing components.
+
+### Usage
+
+```bash
+# Netcat challenge (auto-detects host:port)
+binagent solve "nc example.com 12345"
+
+# APK reverse engineering
+binagent solve --file ./challenge.apk
+
+# Binary with description
+binagent solve --file ./binary --desc "Buffer overflow"
+
+# Explicit target
+binagent solve --connect example.com:12345
+```
+
+### Output
+
+Results are saved to `runs/<run-id>/`:
+- `plan.json` - Routing plan (JSON)
+- `transcript.txt` - Execution log
+- `summary.json` - Results with flags
+- `run.json` - Run metadata
+
+## APK CTF Solver (Deterministic)
+
+BinAgent also includes a deterministic APK solver (no LLM) for faster CTF solving:
+- Extracts APKs using apktool
+- Decompiles using jadx
+- Scans for flag patterns and encoded tokens
+- Tries common decoders (Base64, Base32, hex, ROT13, XOR)
+
+### Usage
+
+```bash
+# Solve an APK CTF challenge (deterministic)
+binagent apk ./challenge.apk --mode solve
+
+# With custom flag pattern
+binagent apk ./challenge.apk --mode solve --flag-regex "myctf\{[^}]+\}"
+
+# Analysis only (no solving)
+binagent apk ./challenge.apk
+```
+
+### Output
+
+Results are saved to `runs/<run-id>/`:
+
+| File | Description |
+|------|-------------|
+| `summary.json` | Solver results with flags and evidence |
+| `run.json` | Run metadata (tools, timings, config) |
+| `transcript.txt` | Detailed solver action log |
+| `manifest_info.json` | Package, components, permissions |
+| `apktool_out/` | Extracted APK contents |
+| `jadx_out/` | Decompiled Java sources |
+
+### Interpreting Results
+
+```bash
+# Check if solver found a flag
+cat runs/<run-id>/summary.json | jq '.success, .flags'
+
+# PASS: success=true, flags=[{flag: "...", evidence: {...}}]
+# FAIL: success=false, flags=[], check stop_reason
+```
+
+### Requirements
+
+```bash
+# Install required tools
+sudo apt install apktool default-jdk
+
+# Install jadx (not in apt)
+wget https://github.com/skylot/jadx/releases/download/v1.5.0/jadx-1.5.0.zip
+unzip jadx-1.5.0.zip -d /opt/jadx
+sudo ln -s /opt/jadx/bin/jadx /usr/local/bin/jadx
+```
+
 ## Playbooks
 
 PentestAgent includes prebuilt **attack playbooks** for black-box security testing. Playbooks define a structured approach to specific security assessments.
@@ -160,6 +266,54 @@ Add external tools via MCP servers in `pentestagent/mcp/mcp_servers.json`:
     }
   }
 }
+```
+
+### IDA MCP (Windows-hosted SSE)
+
+If you run WSL and have IDA Pro on Windows, you can host the IDA MCP server on Windows and connect via SSE from WSL.
+
+**1) Start the server on Windows (PowerShell):**
+
+```powershell
+$env:IDA_PATH="C:\Users\ChemistryKing\Desktop\IDA Professional 9.0\idat64.exe"
+$env:IDA_WSL_DISTRO="Ubuntu"
+python \\wsl.localhost\Ubuntu\home\a347908610\binagent\third_party\ida_mcp\ida_server.py --transport sse --host 0.0.0.0 --port 6666
+```
+
+**2) Set the Windows host IP in WSL**
+
+From WSL, get the Windows host IP:
+
+```bash
+cat /proc/net/route | awk '$2=="00000000"{print $3; exit}' | \
+python3 - <<'PY'
+import struct, sys
+val = int(sys.stdin.read().strip(), 16)
+print(".".join(map(str, struct.pack("<L", val))))
+PY
+```
+
+Then update the `ida-local` server entry in `pentestagent/mcp/mcp_servers.json` to use that IP:
+
+```json
+{
+  "command": "python3",
+  "args": [
+    "third_party/ida_mcp/ida_server.py",
+    "--transport",
+    "sse",
+    "--host",
+    "172.27.0.1",
+    "--port",
+    "6666"
+  ]
+}
+```
+
+**3) Test the connection from WSL**
+
+```bash
+binagent mcp test ida-local
 ```
 
 ### CLI Tool Management

@@ -81,3 +81,13 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+
+# Run outputs
+runs/
+
+# Ghidra project files
+pyghidra_mcp_projects/
+
+# CTF test binaries and data
+ctf_tests/
+test_binaries/

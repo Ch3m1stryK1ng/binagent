@@ -90,6 +90,7 @@ Homepage = "https://github.com/GH05TCREW/pentestagent"
 
 [project.scripts]
 pentestagent = "pentestagent.interface.main:main"
+binagent = "pentestagent.interface.main:main"
 
 [build-system]
 requires = ["hatchling"]
