@@ -1,55 +1,29 @@
 \section{Introduction}
-Firmware remains a high-impact and persistent attack surface: it is widely deployed, tightly coupled to device-critical functionality, and often updated less frequently than user-space software. Auditing firmware binaries is hard in practice because source code is typically unavailable, toolchains/architectures are heterogeneous, and the analysis space becomes prohibitively large under realistic time and compute budgets. This creates a recurring gap between \emph{theoretically analyzable} and \emph{operationally auditable}.
+Firmware is a strong target for vulnerability-discovery research because it combines high impact with persistent analysis difficulty. Embedded firmware has repeatedly shown broad and long-lived weaknesses \cite{costin2014large}. In practice, source code is often unavailable, updates are slow, and binaries are heterogeneous across architectures/toolchains. Dynamic analysis is often difficult because it depends on firmware rehosting and emulation, where setup and coverage constraints remain substantial \cite{chen2016firmadyne, angelakopoulos2024pandawan}. This creates a gap between what is theoretically analyzable and what can be audited reliably under realistic time and compute budgets.
 
-This work studies whether an LLM-driven security agent can narrow that gap via structured planning plus tool-grounded binary analysis. We focus on vulnerability detection in stripped or partially symbolized binaries, where the agent must infer structure, prioritize risky regions, and justify findings with explicit evidence. Instead of brute-force tool invocation, we enforce a plan--act--observe--replan loop with bounded iterations, evidence-aware prioritization (dangerous APIs, cross-references, data-flow hints), and scalable decomposition (coarse triage followed by selective deep dives). The goal is to improve both effectiveness (finding real vulnerabilities) and efficiency (latency and tool/token cost), while preserving auditability through machine-checkable evidence trails.
+We focus on firmware because it is both security-relevant and a realistic stress case for practical analysis workflows. This is also why firmware is a good LLM target: if dynamic analysis is bottlenecked by rehosting/emulation, then a static-first workflow can create strong value as a triage and hypothesis-generation layer; dynamic confirmation can be optional or targeted. The core problem is firmware vulnerability discovery on binary-only inputs with heterogeneous tool outputs and incomplete context.
 
-Our research question is: \textit{How can a security agent expand the range of binary vulnerability tasks it can solve from minimal task descriptions, while remaining fast and reliable on large firmware inputs, using principled planning and evidence-guided decomposition?} To answer this, we develop \textbf{BinAgent}, built on top of \textbf{PentestAgent}, and evaluate it on progressively harder reverse-engineering and vulnerability-analysis tasks. The intended contribution is a practical control-layer architecture for firmware-scale binary auditing that is measurable, reproducible, and extensible across analysis backends.
+LLMs add value here when used as control components, not stand-alone detectors. Compared with traditional static pipelines, an LLM-driven framework can provide: (i) \textbf{cross-tool orchestration} (routing between disassembly, decompilation, xref, and string analyses under one plan), (ii) \textbf{cross-function and cross-binary reasoning} (tracking evidence across call chains and binaries instead of isolated function-level checks), (iii) \textbf{semantic hypothesis refinement} from pseudocode/assembly context, and (iv) \textbf{evidence-grounded iterative analysis} that updates priorities as new facts appear. Recent work supports parts of this direction: stripped-binary semantic recovery (SymGen, VulBinLLM) \cite{sun2025symgen, liu2025vulbinllm} and tool-mediated planning loops in security agents \cite{shen2025pentestagent}. The main risk is unreliability (hallucination, over-exploration, unstable decisions), which motivates strict execution constraints and direct comparison with non-LLM baselines.
+
+Classical firmware/binary systems provide core primitives (rehosting, symbolic/concolic exploration, fuzzing), but not planner-level resource allocation for long workflows \cite{chen2016firmadyne, stephens2016driller, yun2018qsym}. Concretely, when analysts face $N$ binaries, $M$ candidate functions, and $K$ analysis tools (decompile/xref/taint/strings), these systems do not directly optimize which action should be taken next, when to stop, or when to pivot under weak evidence. For firmware static analysis specifically, Operation Mango demonstrates strong taint-style vulnerability discovery by scaling static data-flow analysis \cite{gibbs2024operationmango}. Recent LLM-binary papers improve semantic recovery, yet leave open reliability and comparative effectiveness on firmware-scale workflows \cite{tan2024llm4decompile, sun2025symgen, liu2025vulbinllm}. Our work is positioned as a reproducible agent-control design evaluated against both LLM-based and traditional analysis baselines.
+
+\paragraph{Research Questions.}
+\textbf{RQ1.}
+\begin{quote}
+\textit{How can we design and build an LLM-driven framework (BinAgent) that effectively leverages planning, scheduling, and pseudocode-level reasoning to improve firmware binary analysis efficiency and end-to-end vulnerability discovery outcomes?}
+\end{quote}
+\textbf{RQ2.}
+\begin{quote}
+\textit{How should we define a benchmark and evaluation protocol that meaningfully characterizes BinAgent's capabilities, limitations, and comparative performance against recent LLM-based systems and traditional static firmware-analysis workflows?}
+\end{quote}
+
+Our working hypothesis is that the main bottleneck is not the lack of standalone analysis primitives, but weak orchestration across existing ones. We therefore design \textbf{BinAgent} as an LLM-driven control layer that performs planning, tool routing/scheduling, pseudocode reading, and evidence-grounded synthesis over existing firmware-analysis tools.
+
+These research questions motivate two design principles embedded in the introduction above: first, LLM-orchestrated integration of existing methods (planning, dispatch/scheduling, and pseudocode-guided reasoning) as the mechanism for improvement; second, explicit comparison against traditional workflows to explain where and why LLM-driven orchestration adds measurable value.
 
 \paragraph{Planned contributions.}
 \begin{enumerate}
-\item A planner-centric agent architecture for firmware binary auditing that integrates LLM reasoning with static analysis/decompiler tooling, and requires evidence-linked outputs.
-\item An evidence-aware prioritization policy for large binaries that ranks risky functions/callsites before deep inspection, reducing unnecessary exploration.
-\item A scalable decomposition workflow (coarse-to-fine analysis, selective deep dives, caching/memory control) designed for latency and cost constraints.
-\item An artifact-driven evaluation protocol (plans, tool logs, evidence traces, outcomes) to quantify speed--quality tradeoffs and failure modes.
+\item \textbf{BinAgent framework design:} a planner-centric LLM control layer that coordinates existing static-analysis and reverse-engineering tools through plan--act--observe loops, tool scheduling, and pseudocode-guided reasoning.
+\item \textbf{Integration methodology:} a concrete recipe for combining heterogeneous analysis outputs (disassembly, decompilation, xrefs, strings, and notes) into evidence-linked vulnerability hypotheses and decisions.
+\item \textbf{Benchmark specification for BinAgent:} a capability-oriented benchmark and protocol covering single-binary and multi-binary firmware tasks, with clear metrics, artifact requirements, and baseline definitions \cite{yang2025pentesteval}.
 \end{enumerate}
-
-\section{Related Work}
-\subsection{Firmware Binary Analysis}
-Foundational firmware work established scalable pipelines for extraction, rehosting, and dynamic analysis. Large-scale studies highlighted ecosystem-wide weaknesses \cite{costin2014large}. FIRMADYNE introduced automated dynamic analysis for Linux-based firmware images \cite{chen2016firmadyne}, and later systems such as FirmAE improved practical emulation success rates \cite{kim2020firmae}. More recent efforts broaden coverage across user/kernel boundaries and device behaviors, including FirmSolo (kernel modules), Pandawan (holistic rehosting progress), and Laelaps/FFXE-style advances in peripheral modeling and control-flow recovery \cite{angelakopoulos2023firmsolo, angelakopoulos2024pandawan, mukherjee2020laelaps, tsang2024ffxe}. These works are essential for execution coverage, but they do not directly solve planner-level prioritization under strict latency budgets. Our work complements them by optimizing \emph{what to analyze next} when full emulation context is absent or too expensive.
-
-\subsection{Binary Vulnerability Discovery and Program Analysis}
-Classical binary vulnerability discovery combines symbolic execution, concolic execution, and fuzzing. Driller demonstrated selective symbolic execution as a practical accelerator for fuzzing \cite{stephens2016driller}, and QSYM further emphasized performance-aware hybrid concolic design \cite{yun2018qsym}. Cross-architecture bug discovery systems (e.g., discovRE) and SoK analyses formalize why selective expensive reasoning often outperforms exhaustive search \cite{eschweiler2016discovere, shoshitaishvili2016sok}. Our design inherits this principle at the agent-control layer: use cheap global scans to rank hypotheses, then spend expensive tool calls only on evidence-supported regions.
-
-\subsection{LLMs for Binary Analysis}
-Recent work shows that LLMs can contribute directly to binary workflows. LLM4Decompile demonstrates strong LLM-assisted decompilation capability and highlights the importance of functional/executability-oriented evaluation \cite{tan2024llm4decompile}. VulBinLLM targets stripped-binary vulnerability detection with decompilation optimization and long-context memory strategies \cite{liu2025vulbinllm}. These results motivate our setting, but leave open the systems question of \emph{reliable orchestration}: how to keep tool use bounded, evidence-linked, and robust as binary scale increases.
-
-\subsection{LLMs and Tool-Using Agents for Security Tasks}
-Tool-using LLM agents have shown strong improvements when reasoning is interleaved with external actions \cite{yao2022react, schick2023toolformer}. Planning-centric variants (Plan-and-Solve, Tree-of-Thoughts), critique/reflection loops (Reflexion, CRITIC), and memory hierarchies (MemGPT) provide design patterns for long-horizon reliability \cite{wang2023planandsolve, yao2023treeofthoughts, shinn2023reflexion, gou2023critic, packer2023memgpt}. In security contexts, PentestGPT and autonomous hacking studies show promise, but also surface reproducibility and safety/reliability limits on complex tasks \cite{deng2023pentestgpt, fang2024autonomoushacking}. Our approach operationalizes these lessons with mandatory planning, bounded loops, and strict evidence linkage (e.g., CWE + function/address + snippet + tool provenance).
-
-\subsection{Positioning of This Work}
-This project sits at the intersection of firmware RE, binary analysis, and LLM agent orchestration. The novelty is not a new decompiler, emulator, or symbolic engine; it is a control-layer design that (i) adapts analysis depth to observed evidence, (ii) prioritizes dangerous regions before broad exploration, (iii) manages context/cost via scalable decomposition and memory control, and (iv) outputs machine-checkable artifacts suitable for regression testing. This framing makes BinAgent a practical vehicle for studying scalability and reliability in firmware-oriented binary auditing.
-
-\paragraph{Citation placeholders.}
-Update and verify bibliography entries before submission:
-\texttt{costin2014large},
-\texttt{chen2016firmadyne},
-\texttt{kim2020firmae},
-\texttt{angelakopoulos2023firmsolo},
-\texttt{angelakopoulos2024pandawan},
-\texttt{mukherjee2020laelaps},
-\texttt{tsang2024ffxe},
-\texttt{stephens2016driller},
-\texttt{yun2018qsym},
-\texttt{eschweiler2016discovere},
-\texttt{shoshitaishvili2016sok},
-\texttt{tan2024llm4decompile},
-\texttt{liu2025vulbinllm},
-\texttt{yao2022react},
-\texttt{schick2023toolformer},
-\texttt{wang2023planandsolve},
-\texttt{yao2023treeofthoughts},
-\texttt{shinn2023reflexion},
-\texttt{gou2023critic},
-\texttt{packer2023memgpt},
-\texttt{deng2023pentestgpt},
-\texttt{fang2024autonomoushacking}.
