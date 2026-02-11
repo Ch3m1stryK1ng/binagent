@@ -78,8 +78,10 @@ The design draws on established agent patterns — ReAct (Yao et al., 2023), Pla
 - **Mandatory planning phase** — The agent must output a numbered plan (3–7 steps) before executing any tool calls. Plans are validated programmatically; execution is blocked until the plan passes.
 - **Evidence-linked observations** — Every finding must be tied to a `function:address:snippet` triple. Natural-language claims without supporting evidence are rejected during re-planning.
 - **Fail-fast bootstrap** — Before analysis begins, the agent verifies that required tools (e.g., Ghidra MCP) are reachable and the binary is loadable. Missing tools trigger an immediate error rather than silent degradation.
-- **Bounded tool budgets** — Preflight consumes ~30 tool calls for Ghidra workflows. The main loop operates within a configurable iteration limit to prevent runaway execution.
+- **Bounded tool budgets** — Preflight consumes ~30 tool calls for Ghidra workflows. The main loop operates within a configurable iteration limit to prevent runaway execution. Iteration limits auto-scale based on binary size (<1 MB → 12, 1–2.5 MB → 20, >2.5 MB → 25) when not explicitly overridden.
 - **Tactical replanning** — When the agent detects it is stuck (e.g., tool failures, unexpected binary structure), it pauses execution, states what went wrong, and proposes an alternative plan.
+- **LLM error resilience** — Transient LLM API errors (connection failures, rate limits) are retried with exponential backoff without consuming iteration budget. Permanent errors (bad request, auth failures) trigger immediate shutdown. Orphan tool messages are automatically sanitized to prevent OpenAI protocol violations.
+- **Live terminal output** — The `analyze` and `solve` commands stream the agent's reasoning, tool calls, and results to the terminal in real time via Rich panels, so the user can monitor the full LLM conversation as it happens.
 - **CWE-labeled output** — Vulnerability findings in ANALYZE mode are tagged with CWE identifiers, function addresses, and decompiled evidence snippets.
 
 ## MCP Integration
@@ -187,10 +189,13 @@ Vulnerability detection with CWE-labeled findings.
 ```bash
 binagent analyze ./binary
 binagent analyze ./binary --task "Find buffer overflow vulnerabilities"
-binagent analyze ./binary --offline    # Without Ghidra (limited analysis)
+binagent analyze ./binary --max-loops 25    # Override iteration limit
+binagent analyze ./binary --offline         # Without Ghidra (limited analysis)
 ```
 
 **Workflow:** Bootstrap → Preflight → Plan → Analysis Loop → CWE Report
+
+The iteration limit auto-scales with binary size when `--max-loops` is not specified: small binaries (<1 MB) get 12 iterations, medium binaries (1–2.5 MB) get 20, and large binaries (>2.5 MB) get 25. The Ghidra analysis readiness is verified via polling (up to 120 s) rather than a fixed delay, ensuring reliable startup on large firmware images.
 
 The agent identifies dangerous API call sites, decompiles surrounding code, reasons about exploitability, and produces structured findings:
 
@@ -326,6 +331,11 @@ PENTESTAGENT_MODEL=claude-sonnet-4-20250514
 # Ghidra integration (optional)
 GHIDRA_INSTALL_DIR=/path/to/ghidra_11.x
 JAVA_HOME=/path/to/jdk-21
+
+# Observability via Langfuse (optional — disabled unless keys are set)
+# LANGFUSE_PUBLIC_KEY=pk-lf-...
+# LANGFUSE_SECRET_KEY=sk-lf-...
+# LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
 ### Makefile Targets
@@ -376,6 +386,7 @@ pentestagent/
   knowledge/           # RAG system and shadow graph
   llm/                 # LiteLLM wrapper (any provider)
   mcp/                 # MCP client, server configs, adapters
+  observability/       # Opt-in Langfuse tracing (disabled unless configured)
   playbooks/           # Attack playbooks
   runtime/             # Local and Docker execution environments
   tools/               # Built-in tools (terminal, browser, notes, etc.)

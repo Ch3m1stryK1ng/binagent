@@ -1,0 +1,170 @@
+{
+  "name": "binagent_firmware_benchmark_v1",
+  "version": "1.0.0",
+  "generated_at": "2026-02-10",
+  "root": "/home/a347908610/binagent",
+  "dataset_root": "monolithic-firmware-collection",
+  "goal": "Effectiveness-first evaluation for firmware vulnerability discovery",
+  "groups": [
+    {
+      "group_id": "positive_cve",
+      "label": "positive",
+      "description": "CVE-labeled Zephyr firmware samples (weak ground truth)",
+      "samples": [
+        {
+          "id": "zephyr_cve_2020_10064",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2020-10064/zephyr-CVE-2020-10064.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2020-10064"
+        },
+        {
+          "id": "zephyr_cve_2020_10065",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2020-10065/zephyr-CVE-2020-10065.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2020-10065"
+        },
+        {
+          "id": "zephyr_cve_2020_10066",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2020-10066/zephyr-CVE-2020-10066.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2020-10066"
+        },
+        {
+          "id": "zephyr_cve_2021_3319",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2021-3319/zephyr-CVE-2021-3319.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2021-3319"
+        },
+        {
+          "id": "zephyr_cve_2021_3320",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2021-3320/zephyr-CVE-2021-3320.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2021-3320"
+        },
+        {
+          "id": "zephyr_cve_2021_3321",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2021-3321/zephyr-CVE-2021-3321.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2021-3321"
+        },
+        {
+          "id": "zephyr_cve_2021_3322",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2021-3322/zephyr-CVE-2021-3322.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2021-3322"
+        },
+        {
+          "id": "zephyr_cve_2021_3323",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2021-3323/zephyr-CVE-2021-3323.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2021-3323"
+        },
+        {
+          "id": "zephyr_cve_2021_3329",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2021-3329/zephyr-CVE-2021-3329.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2021-3329"
+        },
+        {
+          "id": "zephyr_cve_2021_3330",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-2021-3330/zephyr-CVE-2021-3330.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "CVE-2021-3330"
+        }
+      ]
+    },
+    {
+      "group_id": "negative_no_cve",
+      "label": "negative",
+      "description": "Explicit no-CVE false-positive controls",
+      "samples": [
+        {
+          "id": "zephyr_no_cve_rf_size_check",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-no-CVE-false-positive-rf-size-check/zephyr-CVE-no-CVE-false-positive-rf-size-check.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "no_known_cve"
+        },
+        {
+          "id": "zephyr_no_cve_watchdog_callback",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_FUZZWARE/new-targets/zephyr-os/prebuilt_samples/CVE-no-CVE-false-positive-watchdog-callback/zephyr-CVE-no-CVE-false-positive-watchdog-callback.elf",
+          "arch": "ARM Cortex-M",
+          "expected": "no_known_cve"
+        }
+      ]
+    },
+    {
+      "group_id": "unknown_real_world",
+      "label": "unknown",
+      "description": "In-the-wild firmware without complete vulnerability labels",
+      "samples": [
+        {
+          "id": "p2im_console",
+          "path": "monolithic-firmware-collection/ARMCortex-M/p2im_console/p2im_console.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "p2im_gateway",
+          "path": "monolithic-firmware-collection/ARMCortex-M/p2im_gateway/p2im_gateway.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "p2im_controllino",
+          "path": "monolithic-firmware-collection/ARMCortex-M/p2im_controllino/p2im_controllino.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "p2im_controllino_slave",
+          "path": "monolithic-firmware-collection/ARMCortex-M/p2im_controllino_slave/p2im_controllino_slave.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "st_plc",
+          "path": "monolithic-firmware-collection/ARMCortex-M/st-plc/st-plc.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "thermostat",
+          "path": "monolithic-firmware-collection/ARMCortex-M/thermostat/thermostat.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "stm32_tcp_echo_server",
+          "path": "monolithic-firmware-collection/ARMCortex-M/stm32_tcp_echo_server/stm32_tcp_echo_server.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "stm32_udp_echo_server",
+          "path": "monolithic-firmware-collection/ARMCortex-M/stm32_udp_echo_server/stm32_udp_echo_server.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "nxp_lwip_http",
+          "path": "monolithic-firmware-collection/ARMCortex-M/nxp_lwip_http/nxp_lwip_http.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "rf_door_lock",
+          "path": "monolithic-firmware-collection/ARMCortex-M/rf_door_lock/rf_door_lock.elf",
+          "arch": "ARM Cortex-M"
+        },
+        {
+          "id": "bcm4345c0_blob",
+          "path": "monolithic-firmware-collection/ARMCortex-M/D_POLYPUS/BCM4345C0.bin",
+          "arch": "ARM Cortex-M (raw blob)"
+        },
+        {
+          "id": "shannon_modem_blob",
+          "path": "monolithic-firmware-collection/ARMCortex-R/ShannonBaseband/modem.bin",
+          "arch": "ARM Cortex-R (raw blob)"
+        }
+      ]
+    }
+  ],
+  "recommended_metrics": [
+    "cve_hit_rate_on_positive",
+    "false_positive_rate_on_negative",
+    "evidence_completeness_rate",
+    "time_to_first_actionable_finding",
+    "analyst_validation_pass_rate"
+  ]
+}

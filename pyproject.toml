@@ -67,8 +67,11 @@ rag = [
     "sentence-transformers>=2.7.0",
     "faiss-cpu>=1.8.0",
 ]
+observability = [
+    "langfuse>=2.0.0",
+]
 all = [
-    "pentestagent[dev,rag]",
+    "pentestagent[dev,rag,observability]",
 ]
 hexstrike = [
     "flask>=2.3.0,<4.0.0",
