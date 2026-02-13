@@ -157,3 +157,39 @@ async def test_legacy_migration(tmp_path):
 
     assert "new_note" in all_notes
     assert all_notes["new_note"]["content"] == "A dict"
+
+
+@pytest.mark.asyncio
+async def test_binary_finding_note_auto_enriches_weaknesses():
+    """Binary-style finding text should not fail strict schema validation."""
+    result = await notes({
+        "action": "create",
+        "key": "bin_finding_1",
+        "category": "finding",
+        "target": "sample.elf",
+        "value": "Potential CWE-134 format string in printf(fmt) callsite at 0x401234",
+    }, runtime=None)
+
+    assert "Created note 'bin_finding_1'" in result
+    all_notes = await get_all_notes()
+    md = all_notes["bin_finding_1"].get("metadata", {})
+    assert isinstance(md.get("weaknesses"), list)
+    assert len(md["weaknesses"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_binary_vulnerability_note_auto_enriches_weaknesses():
+    """Vulnerability notes with CWE evidence should auto-populate weaknesses."""
+    result = await notes({
+        "action": "create",
+        "key": "bin_vuln_1",
+        "category": "vulnerability",
+        "target": "sample.elf",
+        "value": "Detected CWE-120 via scanf(\"%s\", buf) in function foo",
+    }, runtime=None)
+
+    assert "Created note 'bin_vuln_1'" in result
+    all_notes = await get_all_notes()
+    md = all_notes["bin_vuln_1"].get("metadata", {})
+    assert isinstance(md.get("weaknesses"), list)
+    assert len(md["weaknesses"]) == 1

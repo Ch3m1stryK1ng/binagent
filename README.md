@@ -16,7 +16,7 @@ BinAgent is an LLM-based agent that performs automated vulnerability detection a
 
 The key architectural decision in BinAgent is the use of the **Model Context Protocol (MCP)** to decouple LLM reasoning from tool execution. Rather than embedding analysis logic directly in the agent, BinAgent connects to external analysis backends — primarily **Ghidra** via [pyghidra-mcp](https://github.com/DarkMatter-999/pyghidra-mcp) — through a standardized tool protocol. The LLM plans and reasons; Ghidra provides ground-truth static analysis (decompilation, cross-references, symbol resolution). This separation allows the agent to leverage the full power of a production reverse-engineering platform without coupling the LLM to any particular tool's API.
 
-BinAgent supports two operating modes: **ANALYZE** for vulnerability detection with CWE-labeled output, and **SOLVE** for CTF flag recovery across binary RE, network service, and APK challenges. Both modes enforce a mandatory planning phase (3–7 steps) before any tool execution, with bounded tool budgets and tactical replanning when the agent gets stuck.
+BinAgent supports two operating modes: **ANALYZE** for vulnerability detection with CWE-labeled output, and **SOLVE** for CTF flag recovery across binary RE, network service, and APK challenges. Both modes enforce a mandatory planning phase (3–7 steps) before any tool execution, with bounded tool budgets and tactical replanning when the agent gets stuck. For deeper analysis, **double-run mode** (`--doublerun`) executes two complementary passes — Run A for broad vulnerability discovery and Run B for targeted exploration of new code paths — with dynamic budget reallocation between passes.
 
 The design draws on established agent patterns — ReAct (Yao et al., 2023), Plan-and-Solve (Wang et al., 2023), CRITIC (Gou et al., 2024), and Reflexion (Shinn et al., 2023) — and positions itself alongside recent work on LLM-assisted binary analysis such as VulBinLLM and LLM4Decompile.
 
@@ -78,7 +78,7 @@ The design draws on established agent patterns — ReAct (Yao et al., 2023), Pla
 - **Mandatory planning phase** — The agent must output a numbered plan (3–7 steps) before executing any tool calls. Plans are validated programmatically; execution is blocked until the plan passes.
 - **Evidence-linked observations** — Every finding must be tied to a `function:address:snippet` triple. Natural-language claims without supporting evidence are rejected during re-planning.
 - **Fail-fast bootstrap** — Before analysis begins, the agent verifies that required tools (e.g., Ghidra MCP) are reachable and the binary is loadable. Missing tools trigger an immediate error rather than silent degradation.
-- **Bounded tool budgets** — Preflight consumes ~30 tool calls for Ghidra workflows. The main loop operates within a configurable iteration limit to prevent runaway execution. Iteration limits auto-scale based on binary size (<1 MB → 12, 1–2.5 MB → 20, >2.5 MB → 25) when not explicitly overridden.
+- **Bounded tool budgets** — Preflight consumes ~30 tool calls for Ghidra workflows. The main loop operates within a configurable iteration limit to prevent runaway execution. Iteration limits auto-scale based on binary size and run mode (see [Double-Run Mode](#double-run-mode) below).
 - **Tactical replanning** — When the agent detects it is stuck (e.g., tool failures, unexpected binary structure), it pauses execution, states what went wrong, and proposes an alternative plan.
 - **LLM error resilience** — Transient LLM API errors (connection failures, rate limits) are retried with exponential backoff without consuming iteration budget. Permanent errors (bad request, auth failures) trigger immediate shutdown. Orphan tool messages are automatically sanitized to prevent OpenAI protocol violations.
 - **Live terminal output** — The `analyze` and `solve` commands stream the agent's reasoning, tool calls, and results to the terminal in real time via Rich panels, so the user can monitor the full LLM conversation as it happens.
@@ -191,11 +191,19 @@ binagent analyze ./binary
 binagent analyze ./binary --task "Find buffer overflow vulnerabilities"
 binagent analyze ./binary --max-loops 25    # Override iteration limit
 binagent analyze ./binary --offline         # Without Ghidra (limited analysis)
+
+# Automated two-pass analysis (see Double-Run Mode below)
+binagent analyze ./binary --doublerun
+binagent analyze ./binary --doublerun --max-loops 40
+
+# Manual second-pass analysis (builds on previous findings)
+binagent analyze ./binary --previous-run latest            # auto-finds last run for same binary
+binagent analyze ./binary --previous-run 20260210_194644   # explicit run ID
 ```
 
 **Workflow:** Bootstrap → Preflight → Plan → Analysis Loop → CWE Report
 
-The iteration limit auto-scales with binary size when `--max-loops` is not specified: small binaries (<1 MB) get 12 iterations, medium binaries (1–2.5 MB) get 20, and large binaries (>2.5 MB) get 25. The Ghidra analysis readiness is verified via polling (up to 120 s) rather than a fixed delay, ensuring reliable startup on large firmware images.
+The iteration limit auto-scales with binary size when `--max-loops` is not specified (see [Double-Run Mode](#double-run-mode) for doublerun-specific scaling). The Ghidra analysis readiness is verified via polling (up to 120 s) rather than a fixed delay, ensuring reliable startup on large firmware images.
 
 The agent identifies dangerous API call sites, decompiles surrounding code, reasons about exploitability, and produces structured findings:
 
@@ -210,6 +218,57 @@ The agent identifies dangerous API call sites, decompiles surrounding code, reas
 ```
 
 When Ghidra is unavailable, the `--offline` flag enables fallback analysis using `file`, `strings`, and `readelf`.
+
+### Double-Run Mode
+
+The `--doublerun` flag enables a two-pass analysis that significantly increases finding coverage and CWE diversity compared to single-pass runs.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                        Total Loop Budget (N)                         │
+│                                                                      │
+│   Run A (up to 2N/3)              Run B (dynamic remainder)          │
+│  ┌────────────────────┐     ┌──────────────────────────────────┐    │
+│  │ Thorough analysis  │     │ Explore NEW code paths only      │    │
+│  │ • Full preflight   │────▶│ • Skip preflight (reuse Ghidra)  │    │
+│  │ • LLM-generated    │     │ • 3-step compressed plan         │    │
+│  │   plan (3-7 steps) │     │ • Dynamic budget: max(N - A, N/3)│    │
+│  │ • Report all       │     │ • Targets unexplored sinks/xrefs │    │
+│  │   findings (even   │     │ • Outputs only NEW findings      │    │
+│  │   medium-confidence│     │                                  │    │
+│  │   ones)            │     │  Receives from Run A:            │    │
+│  └────────────────────┘     │  • Explored function list        │    │
+│                              │  • Queried sinks list            │    │
+│                              │  • Prior findings (for dedup)    │    │
+│                              │  • Preflight pseudocode          │    │
+│                              └──────────────────────────────────┘    │
+│                                                                      │
+│                    Merge & deduplicate findings                       │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Key design decisions:**
+
+- **Run A uses the same aggressive prompt as single-run mode** — no "breadth-first" or "a second pass will follow" framing, which caused the LLM to defer findings in earlier designs. Run A reports all vulnerabilities including medium-confidence ones.
+- **Run B receives a compressed 3-step plan** (search new sinks + xrefs → decompile new callers → map to CWEs) instead of a 5-step plan, ensuring it completes within its loop budget.
+- **Dynamic budget reallocation** — Run A gets a cap of 2/3 of total loops but typically finishes early. The unused loops are dynamically reallocated to Run B: `run_b_budget = max(total - run_a_used, total/3)`. This prevents wasted iterations.
+- **Run B skips preflight** and reuses Run A's Ghidra session, so it starts immediately with tool execution on new code paths.
+
+**Auto-scaling for doublerun** — When `--max-loops` is not specified, doublerun mode uses higher default budgets than single-run to accommodate both passes:
+
+| Binary size | Single run | Double run |
+|-------------|-----------|------------|
+| > 2.5 MB   | 25 loops  | 45 loops   |
+| 1–2.5 MB   | 20 loops  | 35 loops   |
+| < 1 MB     | 12 loops  | 25 loops   |
+
+```bash
+# Default budget (auto-scaled by file size)
+binagent analyze ./firmware.elf --doublerun
+
+# Explicit budget
+binagent analyze ./firmware.elf --doublerun --max-loops 40
+```
 
 ### Solve Mode (CTF)
 

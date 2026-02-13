@@ -9,6 +9,8 @@ def _make_agent_stub() -> GeneralAgent:
     agent = GeneralAgent.__new__(GeneralAgent)
     agent.findings = []
     agent._ghidra_available = True
+    agent._required_pseudocode_targets = set()
+    agent._viewed_pseudocode_functions = set()
     agent._log = lambda *args, **kwargs: None
     return agent
 
@@ -111,3 +113,38 @@ def test_negated_vulnerability_statement_not_flagged():
     text = "No confirmed buffer overflow or format string vulnerabilities were identified."
     agent._extract_findings_from_content(text)
     assert agent.findings == []
+
+
+def test_finding_status_confirmed_vs_suspicious():
+    agent = _make_agent_stub()
+
+    confirmed = agent._normalize_finding(
+        {
+            "cwe": "CWE-120",
+            "title": "Unbounded scanf into buffer",
+            "function": "cuiGetInteger",
+            "evidence": 'scanf("%s", auStack_30);',
+            "rationale": 'Unbounded "%s" format in scanf can overflow destination buffer.',
+            "confidence": "high",
+        }
+    )
+    suspicious = agent._normalize_finding(
+        {
+            "cwe": "CWE-134",
+            "title": "Potential format string",
+            "function": "",
+            "evidence": "printf(message) with untrusted message indicates format string risk",
+            "rationale": "Derived from analysis evidence.",
+            "confidence": "medium",
+        }
+    )
+
+    assert confirmed["finding_status"] == "confirmed"
+    assert suspicious["finding_status"] == "suspicious"
+
+
+def test_confirmation_request_detection():
+    agent = _make_agent_stub()
+    assert agent._is_confirmation_request("Please confirm so I can continue to Step 3.")
+    assert agent._is_confirmation_request("I will execute Step 2 after you confirm.")
+    assert not agent._is_confirmation_request("Proceeding to Step 3 now.")
