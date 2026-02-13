@@ -16,73 +16,58 @@ BinAgent is an LLM-based agent that performs automated vulnerability detection a
 
 The key architectural decision in BinAgent is the use of the **Model Context Protocol (MCP)** to decouple LLM reasoning from tool execution. Rather than embedding analysis logic directly in the agent, BinAgent connects to external analysis backends — primarily **Ghidra** via [pyghidra-mcp](https://github.com/DarkMatter-999/pyghidra-mcp) — through a standardized tool protocol. The LLM plans and reasons; Ghidra provides ground-truth static analysis (decompilation, cross-references, symbol resolution). This separation allows the agent to leverage the full power of a production reverse-engineering platform without coupling the LLM to any particular tool's API.
 
-BinAgent supports two operating modes: **ANALYZE** for vulnerability detection with CWE-labeled output, and **SOLVE** for CTF flag recovery across binary RE, network service, and APK challenges. Both modes enforce a mandatory planning phase (3–7 steps) before any tool execution, with bounded tool budgets and tactical replanning when the agent gets stuck. For deeper analysis, **double-run mode** (`--doublerun`) executes two complementary passes — Run A for broad vulnerability discovery and Run B for targeted exploration of new code paths — with dynamic budget reallocation between passes.
+BinAgent supports two operating modes: **ANALYZE** for vulnerability detection with CWE-labeled output, and **SOLVE** for CTF flag recovery across binary RE, network service, and APK challenges. In analyze mode, the system performs an automated preflight first, then enforces a mandatory planning phase (3–7 steps) before free-form execution. For deeper analysis, **double-run mode** (`--doublerun`) executes two complementary passes — Run A for broad vulnerability discovery and Run B for targeted exploration of new code paths — with dynamic budget reallocation between passes.
 
 The design draws on established agent patterns — ReAct (Yao et al., 2023), Plan-and-Solve (Wang et al., 2023), CRITIC (Gou et al., 2024), and Reflexion (Shinn et al., 2023) — and positions itself alongside recent work on LLM-assisted binary analysis such as VulBinLLM and LLM4Decompile.
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    U["User Task<br/>`binagent analyze ...` / `binagent solve ...`"] --> CLI["CLI (`interface/main.py`)"]
+    CLI --> SETUP["Setup: Runtime + Tool Registry + LLM (`llm/llm.py`)"]
+    SETUP --> MCP["MCP Manager (`mcp/manager.py`)<br/>connect_all()"]
+    SETUP --> AG["GeneralAgent (`agents/general_agent.py`)"]
+    MCP --> TOOLS["MCP tools + built-in tools<br/>(ghidra, run_command, notes, etc.)"]
+    TOOLS --> AG
+
+    AG --> PRE{"Preflight history injected?"}
+    PRE -->|No| PF["Phase 0: Preflight<br/>file/checksec/readelf + Ghidra import/scan/decompile"]
+    PRE -->|Yes (Run B)| INJ["Reuse Run A pseudocode chunks<br/>skip heavy preflight"]
+    PF --> PLAN["Phase 1: Plan generation<br/>LLM creates validated numbered plan"]
+    INJ --> PLAN
+    PLAN --> EXEC["Phase 2: Execute (BaseAgent loop)<br/>Plan → Act → Observe → Re-plan"]
+    EXEC --> GUARD["Runtime guards<br/>- autonomous continuation (no confirm loops)<br/>- stagnation early stop<br/>- LLM error/backoff handling"]
+    GUARD --> CLASSIFY["Normalize + evidence dedup + status classification<br/>`confirmed` vs `suspicious`"]
+    CLASSIFY --> OUT["Artifacts (`runs/<id>/`)<br/>`plan.json`, `tool_log.json`, `evidence.json`,<br/>`pseudocode_coverage.json`, `outcome.json`,<br/>`conversation.md`, `run.json`, `llm_trace.jsonl`"]
+
+    CLI --> DR{"`--doublerun`?"}
+    DR -->|Yes| A["Run A (coverage-first)"]
+    A --> CTX["Build Run-A context<br/>explored funcs + findings + pseudocode history"]
+    CTX --> B["Run B (new paths/depth)"]
+    B --> MERGE["Merge Run A/Run B findings<br/>save merged `runs/<base>/outcome.json`"]
+
+    OUT --> STATUS["Analyze outcomes include<br/>`findings`, `confirmed_findings`, `suspicious_findings`"]
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              User Task                                  │
-│           binagent analyze ./binary   or   binagent solve "nc ..."      │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      CLI  (interface/main.py)                           │
-│                  parse args → select mode → launch agent                │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     GeneralAgent  (core agent loop)                     │
-│                                                                         │
-│   ┌───────────┐    ┌────────────────────────────────────────────────┐   │
-│   │ PREFLIGHT │───▶│  PLAN → ACT → OBSERVE → RE-PLAN  (bounded)   │   │
-│   │ (auto)    │    │                                                │   │
-│   │ • import  │    │  1. LLM generates numbered plan (3-7 steps)   │   │
-│   │ • strings │    │  2. Execute tool calls per step                │   │
-│   │ • xrefs   │    │  3. Observe results, link to evidence         │   │
-│   │ • decompile    │  4. Re-plan if stuck or new info emerges      │   │
-│   └───────────┘    └──────────────────┬─────────────────────────────┘   │
-│                                       │                                 │
-└───────────────────────────────────────┼─────────────────────────────────┘
-                                        │
-              ┌─────────────────────────┼─────────────────────────┐
-              │                         │                         │
-              ▼                         ▼                         ▼
-┌───────────────────┐   ┌───────────────────┐   ┌───────────────────────┐
-│   MCP Manager     │   │       LLM         │   │    Tool Registry      │
-│  mcp/manager.py   │   │    llm/llm.py     │   │   tools/registry.py   │
-│                   │   │                   │   │                       │
-│ • connect_all()   │   │ • LiteLLM wrapper │   │ • Built-in tools      │
-│ • tool discovery  │   │ • Any provider    │   │ • MCP tools           │
-└────────┬──────────┘   └───────────────────┘   └───────────────────────┘
-         │
-         │  MCP Protocol (stdio / SSE)
-         │
-    ┌────┴────────────────────────────────────────────┐
-    │                                                  │
-    ▼                    ▼                    ▼        │
-┌──────────┐   ┌──────────────┐   ┌──────────────┐   │
-│  Ghidra  │   │  HexStrike   │   │  Metasploit  │   │
-│ (pyghidra│   │  (vendored)  │   │  (vendored)  │   │
-│  -mcp)   │   │              │   │              │   │
-└──────────┘   └──────────────┘   └──────────────┘   │
-                                                      │
-```
+
+**Current analyze pipeline in code**
+- `interface/main.py` orchestrates single-run or double-run execution, including dynamic loop budget split for Run A/Run B.
+- `GeneralAgent.solve()` executes three phases: preflight, plan generation, and bounded execution.
+- Run B can skip heavy preflight by injecting Run A pseudocode context.
+- Final reporting writes structured artifacts and classifies findings as `confirmed` vs `suspicious`.
 
 ## Key Design Principles
 
-- **Mandatory planning phase** — The agent must output a numbered plan (3–7 steps) before executing any tool calls. Plans are validated programmatically; execution is blocked until the plan passes.
+- **Mandatory planning phase** — In analyze mode, planning is enforced after preflight and before free-form tool execution. Plans are validated programmatically; execution is blocked until a valid plan exists (or fallback plan is generated).
 - **Evidence-linked observations** — Every finding must be tied to a `function:address:snippet` triple. Natural-language claims without supporting evidence are rejected during re-planning.
-- **Fail-fast bootstrap** — Before analysis begins, the agent verifies that required tools (e.g., Ghidra MCP) are reachable and the binary is loadable. Missing tools trigger an immediate error rather than silent degradation.
-- **Bounded tool budgets** — Preflight consumes ~30 tool calls for Ghidra workflows. The main loop operates within a configurable iteration limit to prevent runaway execution. Iteration limits auto-scale based on binary size and run mode (see [Double-Run Mode](#double-run-mode) below).
+- **Graceful degradation on tool availability** — The agent attempts MCP/Ghidra integration when available, but can continue with reduced fidelity (`run_command`, `readelf`, `strings`) when MCP tools are unavailable or disabled.
+- **Bounded tool budgets** — Preflight has a fixed cap and can consume dozens of tool calls on Ghidra workflows (commonly around ~60 depending on binary shape). The main loop operates within a configurable iteration limit to prevent runaway execution. Iteration limits auto-scale based on binary size and run mode (see [Double-Run Mode](#double-run-mode) below).
 - **Tactical replanning** — When the agent detects it is stuck (e.g., tool failures, unexpected binary structure), it pauses execution, states what went wrong, and proposes an alternative plan.
+- **Autonomous continuation guard** — In analyze mode, confirmation-seeking turns are intercepted and the agent is nudged to continue executing tools instead of waiting for user confirmation.
+- **Read-only command caching** — Repeated deterministic shell commands (`file`, `readelf`, `checksec`) are cached per run/runtime to reduce redundant overhead.
 - **LLM error resilience** — Transient LLM API errors (connection failures, rate limits) are retried with exponential backoff without consuming iteration budget. Permanent errors (bad request, auth failures) trigger immediate shutdown. Orphan tool messages are automatically sanitized to prevent OpenAI protocol violations.
 - **Live terminal output** — The `analyze` and `solve` commands stream the agent's reasoning, tool calls, and results to the terminal in real time via Rich panels, so the user can monitor the full LLM conversation as it happens.
-- **CWE-labeled output** — Vulnerability findings in ANALYZE mode are tagged with CWE identifiers, function addresses, and decompiled evidence snippets.
+- **CWE-labeled + statused output** — Analyze findings are deduplicated and grouped into `confirmed_findings` and `suspicious_findings`, with pseudocode coverage tracking.
 
 ## MCP Integration
 
@@ -201,7 +186,7 @@ binagent analyze ./binary --previous-run latest            # auto-finds last run
 binagent analyze ./binary --previous-run 20260210_194644   # explicit run ID
 ```
 
-**Workflow:** Bootstrap → Preflight → Plan → Analysis Loop → CWE Report
+**Workflow:** Bootstrap → Preflight → Plan → Analysis Loop → Dedup/Status Classification → CWE Report
 
 The iteration limit auto-scales with binary size when `--max-loops` is not specified (see [Double-Run Mode](#double-run-mode) for doublerun-specific scaling). The Ghidra analysis readiness is verified via polling (up to 120 s) rather than a fixed delay, ensuring reliable startup on large firmware images.
 
@@ -213,7 +198,8 @@ The agent identifies dangerous API call sites, decompiles surrounding code, reas
   "function": "handle_input",
   "address": "0x00401234",
   "evidence": "gets(buf) with stack buffer of 64 bytes, no bounds checking",
-  "severity": "HIGH"
+  "confidence": "high",
+  "finding_status": "confirmed"
 }
 ```
 
