@@ -24,30 +24,30 @@ The design draws on established agent patterns — ReAct (Yao et al., 2023), Pla
 
 ```mermaid
 flowchart TD
-    U["User Task<br/>`binagent analyze ...` / `binagent solve ...`"] --> CLI["CLI (`interface/main.py`)"]
-    CLI --> SETUP["Setup: Runtime + Tool Registry + LLM (`llm/llm.py`)"]
-    SETUP --> MCP["MCP Manager (`mcp/manager.py`)<br/>connect_all()"]
-    SETUP --> AG["GeneralAgent (`agents/general_agent.py`)"]
-    MCP --> TOOLS["MCP tools + built-in tools<br/>(ghidra, run_command, notes, etc.)"]
+    U["User Task: binagent analyze / solve"] --> CLI["CLI - interface/main.py"]
+    CLI --> SETUP["Setup: Runtime + Tool Registry + LLM"]
+    SETUP --> MCP["MCP Manager - connect_all"]
+    SETUP --> AG["GeneralAgent - core agent loop"]
+    MCP --> TOOLS["MCP tools + built-in tools:<br/>ghidra, run_command, notes, etc."]
     TOOLS --> AG
 
-    AG --> PRE{"Preflight history injected?"}
-    PRE -->|No| PF["Phase 0: Preflight<br/>file/checksec/readelf + Ghidra import/scan/decompile"]
-    PRE -->|Yes (Run B)| INJ["Reuse Run A pseudocode chunks<br/>skip heavy preflight"]
+    AG --> PRE{"Preflight history<br/>injected?"}
+    PRE -->|No| PF["Phase 0: Preflight<br/>file/checksec/readelf +<br/>Ghidra import/scan/decompile"]
+    PRE -->|"Yes - Run B"| INJ["Reuse Run A pseudocode<br/>skip heavy preflight"]
     PF --> PLAN["Phase 1: Plan generation<br/>LLM creates validated numbered plan"]
     INJ --> PLAN
-    PLAN --> EXEC["Phase 2: Execute (BaseAgent loop)<br/>Plan → Act → Observe → Re-plan"]
-    EXEC --> GUARD["Runtime guards<br/>- autonomous continuation (no confirm loops)<br/>- stagnation early stop<br/>- LLM error/backoff handling"]
-    GUARD --> CLASSIFY["Normalize + evidence dedup + status classification<br/>`confirmed` vs `suspicious`"]
-    CLASSIFY --> OUT["Artifacts (`runs/<id>/`)<br/>`plan.json`, `tool_log.json`, `evidence.json`,<br/>`pseudocode_coverage.json`, `outcome.json`,<br/>`conversation.md`, `run.json`, `llm_trace.jsonl`"]
+    PLAN --> EXEC["Phase 2: Execute<br/>Plan - Act - Observe - Re-plan"]
+    EXEC --> GUARD["Runtime guards:<br/>autonomous continuation,<br/>stagnation early stop,<br/>LLM error/backoff handling"]
+    GUARD --> CLASSIFY["Normalize + dedup +<br/>confirmed vs suspicious"]
+    CLASSIFY --> OUT["Artifacts: runs/id/<br/>plan.json, tool_log.json,<br/>evidence.json, outcome.json,<br/>conversation.md, llm_trace.jsonl"]
 
-    CLI --> DR{"`--doublerun`?"}
-    DR -->|Yes| A["Run A (coverage-first)"]
-    A --> CTX["Build Run-A context<br/>explored funcs + findings + pseudocode history"]
-    CTX --> B["Run B (new paths/depth)"]
-    B --> MERGE["Merge Run A/Run B findings<br/>save merged `runs/<base>/outcome.json`"]
+    CLI --> DR{"--doublerun?"}
+    DR -->|Yes| A["Run A: coverage-first"]
+    A --> CTX["Build Run-A context:<br/>explored funcs + findings +<br/>pseudocode history"]
+    CTX --> B["Run B: new paths/depth"]
+    B --> MERGE["Merge Run A + Run B findings<br/>save merged outcome.json"]
 
-    OUT --> STATUS["Analyze outcomes include<br/>`findings`, `confirmed_findings`, `suspicious_findings`"]
+    OUT --> STATUS["Outputs: findings,<br/>confirmed_findings,<br/>suspicious_findings"]
 ```
 
 **Current analyze pipeline in code**
